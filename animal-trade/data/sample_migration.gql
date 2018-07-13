@@ -1,0 +1,91 @@
+# run through line of graql insertion queries that need to be implemented in the java api
+
+# first insert aux data from the PDF
+# countries/region mapping
+
+# Approach 1: 
+# check-exists queries and actions
+match $c isa Country has name "USA"; get; 
+insert $c isa Country has name "USA";
+
+match $r isa Region has name "North America"; get;
+insert $r isa Region has name "North America";
+
+# in this case, don't need to check this at all
+match $c isa country; $r isa region; 
+insert (superlocation: $r, sublocation: $c) isa location;
+
+
+# Approach 2:
+match 
+    $c isa country has name "USA"; $r isa region has name "North America";
+insert
+    (superlocation: $r, sublocation: $c) isa location;
+#if fails, check both of the conditions as before, then re-run the insert-relationship
+# this is actually far less elegant, though may be more efficient!
+
+
+# insert all the "unique" entities
+
+insert $c isa Country has name "USA";
+insert $c isa Country has name "Germany";
+
+# including the entire hierarchy 
+insert $f isa Family has name "family";
+insert $s isa Species,
+    has name "species",
+    has endangerment "3";
+
+
+# insert all other entities that don't have to be singly-inserted
+insert $m isa Measure,
+    has unit "kg",
+    has quantity 100;
+
+#
+
+# the Item object, which is one per transaction/exchange
+# either an import or export
+
+match
+    $importer isa Country,
+        has name "USA";
+    $exporter isa Country, 
+        has name "Germany";
+    $s isa taxon,
+        has name "blablabla";
+
+insert
+    $m isa Measure,
+        has unit "kg",
+        has quantity 100;
+    $item isa Item,
+        has purpose "bla",
+        has source "code";
+    $import (object: $item, receiver: $importer, provider: $exporter) isa import has date 2016-01-01;
+    $r (sized: $item, measurement: $m) isa sizing;
+    (target: $item, explanation: $s) isa description;
+
+
+
+
+insert
+    $import id VS123123;
+    $export id VS5321;
+    (correspondence-import
+    $import (corresponds: $export) isa import; 
+    $export (coresponds: $import) isa export;
+
+
+
+
+
+
+
+    
+
+
+
+    
+    
+    
