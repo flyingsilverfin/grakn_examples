@@ -1,29 +1,25 @@
 package com.joshua;
-import ai.grakn.GraknSession;
-import ai.grakn.GraknTx;
-import ai.grakn.GraknTxType;
-import ai.grakn.Keyspace;
-import ai.grakn.concept.Concept;
-import ai.grakn.concept.ConceptId;
-import ai.grakn.graql.GetQuery;
-import ai.grakn.graql.InsertQuery;
-import ai.grakn.graql.QueryBuilder;
-import ai.grakn.remote.RemoteGrakn;
-import ai.grakn.util.SimpleURI;
-import ai.grakn.graql.admin.Answer;
+
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import ai.grakn.GraknTxType;
+import ai.grakn.Keyspace;
+import ai.grakn.client.Grakn;
+import ai.grakn.concept.Concept;
+import ai.grakn.graql.GetQuery;
+import ai.grakn.graql.InsertQuery;
+import ai.grakn.graql.QueryBuilder;
+import ai.grakn.graql.answer.Answer;
+import ai.grakn.graql.answer.ConceptMap;
+import ai.grakn.util.SimpleURI;
 import com.google.common.collect.Iterables;
-import com.joshua.CSVIterator;
-import groovy.lang.Singleton;
 
 /**
  *
@@ -31,8 +27,9 @@ import groovy.lang.Singleton;
 public class App 
 {
     public static void main( String[] args ) throws IOException {
-
-        try (GraknSession session = RemoteGrakn.session(new SimpleURI("localhost:48555"), Keyspace.of("animaltrade"))) {
+        final String GRAKN_URI = "localhost:48555";
+        final String GRAKN_KEYSPACE = "animaltrade";
+        try (Grakn.Session session = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(GRAKN_KEYSPACE))) {
             loadCountryRegions(session); // make two load datas: one for each file to load data from
             loadAnimalTradeData(session);
 
@@ -41,8 +38,8 @@ public class App
 
     }
 
-    private static void loadCountryRegions(GraknSession session) throws IOException {
-        String countryRegionCSV = "/Users/joshua/Documents/AnimalTrade/animal-trade/data/country_region_mapping.csv";
+    private static void loadCountryRegions(Grakn.Session session) throws IOException {
+        String countryRegionCSV = "/Users/joshua/Documents/grakn_examples/animal-trade/data/country_region_mapping.csv";
         File countryRegionFile = new File(countryRegionCSV);
         // retrieve the migration queries for this data
         MigrationQuery[] countryRegionMigration = DataMigrationQueries.getCountryRegionMigrationQueries();
@@ -52,7 +49,7 @@ public class App
             CSVIterator csv = new CSVIterator(countryRegionFile, ',');
             for(int i = 0; csv.hasNext(); i++ ) {
                 Map<String, String> line = csv.next();
-                try (GraknTx tx = session.open(GraknTxType.WRITE)) {
+                try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
                     if (i % 1 == 0) {
                         System.out.printf("Loaded country-region data: %d, %s\n", i, line.get("ISO"));
                     }
@@ -68,12 +65,12 @@ public class App
         }
     }
 
-    private static void loadAnimalTradeData(GraknSession session) throws IOException {
+    private static void loadAnimalTradeData(Grakn.Session session) throws IOException {
         MigrationQuery[] taxonomyMigration = DataMigrationQueries.getTaxonomyHierarchyMigrationQueries();
         MigrationQuery importMigration = DataMigrationQueries.getImportMigrationQuery();
         MigrationQuery exportMigration = DataMigrationQueries.getExportMigrationQuery();
 
-        String citiesTradeCSV = "/Users/joshua/Documents/AnimalTrade/animal-trade/data/CITIES_data.csv";
+        String citiesTradeCSV = "/Users/joshua/Documents/grakn_examples/animal-trade/data/CITIES_data.csv";
         File dataFile = new File(citiesTradeCSV);
 
         try {
@@ -83,7 +80,7 @@ public class App
                     System.out.printf("Loaded import/export: %d\n", i);
                 }
                 Map<String, String> line = csv.next();
-                try (GraknTx tx = session.open(GraknTxType.WRITE)) {
+                try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
                     loadTaxonomyHierarchy(line, taxonomyMigration, tx);
                     loadExchange(line, importMigration, exportMigration, tx);
                     tx.commit();
@@ -97,7 +94,7 @@ public class App
 
     }
 
-    private static void loadTaxonomyHierarchy(Map<String, String> line, MigrationQuery[] taxonomyMigration, GraknTx tx) {
+    private static void loadTaxonomyHierarchy(Map<String, String> line, MigrationQuery[] taxonomyMigration, Grakn.Transaction tx) {
         // insert singleton taxonomy hierarchy instances
         for (MigrationQuery q : taxonomyMigration) {
             doMigration(line, q, tx);
@@ -105,12 +102,12 @@ public class App
     }
 
     private static void loadExchange(Map<String, String> line, MigrationQuery importMigration,
-                                     MigrationQuery exportMigration, GraknTx tx) {
+                                     MigrationQuery exportMigration, Grakn.Transaction tx) {
 
         // if the "importer reported quantity" is non-empty string
         // add an import
         String imported = line.get("Importer reported quantity");
-        List<Answer> importMigrationResult = null;
+        List<ConceptMap> importMigrationResult = null;
         if (imported.length() > 0) {
             importMigrationResult = doMigration(line, importMigration, tx);
         }
@@ -118,12 +115,12 @@ public class App
         // if "exported reported quantity" is non-empty string, add an export
         String exported =  line.get("Exporter reported quantity");
         if (exported.length() > 0) {
-            List<Answer> exportMigrationResult = doMigration(line, exportMigration, tx);
+            List<ConceptMap> exportMigrationResult = doMigration(line, exportMigration, tx);
 
             if (importMigrationResult != null && importMigrationResult.size() > 0) {
                 // add relationships between the import and export
-                Concept importConcept = Iterables.getOnlyElement(importMigrationResult).get("import");
-                Concept exportConcept = Iterables.getOnlyElement(exportMigrationResult).get("export");
+                Concept importConcept = Iterables.getOnlyElement(importMigrationResult).asConceptMap().get("import");
+                Concept exportConcept = Iterables.getOnlyElement(exportMigrationResult).asConceptMap().get("export");
 
                 // create and run the query to link these two concepts
                 addRelationship(tx, "correspondence",
@@ -136,13 +133,13 @@ public class App
 
 
 
-    private static List<Answer> doMigration(Map<String, String> line, MigrationQuery query, GraknTx tx) {
+    private static List<ConceptMap> doMigration(Map<String, String> line, MigrationQuery query, Grakn.Transaction tx) {
         QueryBuilder qb = tx.graql();
         boolean exists = false;
         if (query instanceof SingletonInsertMigrationQuery) {
             String checkExistenceQuery = ((SingletonInsertMigrationQuery) query).getCheckExistQuery(line);
             GetQuery parsedQuery= qb.parse(checkExistenceQuery);
-            List<Answer> response = parsedQuery.execute();
+            List<ConceptMap> response = parsedQuery.execute();
             exists = response.size() != 0;
         }
 
@@ -151,7 +148,7 @@ public class App
         if (!exists) {
             String migrationQuery = query.getQuery(line);
             InsertQuery parsedQuery = qb.parse(migrationQuery);
-            List<Answer> response = parsedQuery.execute();
+            List<ConceptMap> response = parsedQuery.execute();
             // for detecting missing country codes, remove later
             System.out.println(response.size());
             if (response.size() != 1) {
@@ -162,9 +159,9 @@ public class App
         return null;
     }
 
-    private static List<Answer> addRelationship(GraknTx tx, String relationship, List<String> roles, List<Concept> concepts) {
+    private static List<ConceptMap> addRelationship(Grakn.Transaction tx, String relationship, List<String> roles, List<Concept> concepts) {
 
-        List<String> conceptIds = concepts.stream().map(concept -> concept.getId().toString()).collect(Collectors.toList());
+        List<String> conceptIds = concepts.stream().map(concept -> concept.id().toString()).collect(Collectors.toList());
         String addRelationshipQuery = AddRelationshipQuery.getAddRelationshipQuery(relationship, roles, conceptIds);
 
         QueryBuilder qb = tx.graql();
