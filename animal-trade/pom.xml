@@ -8,7 +8,7 @@
   <name>animal-trade</name>
   <url>http://maven.apache.org</url>
   <properties>
-    <grakn.version>1.4.0-SNAPSHOT</grakn.version>
+    <grakn.version>1.5.0-SNAPSHOT</grakn.version>
     <junit.version>4.12</junit.version>
     <java.version>1.8</java.version>
   </properties>

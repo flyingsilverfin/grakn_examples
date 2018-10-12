@@ -1,6 +1,5 @@
 package com.joshua;
 
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -16,7 +15,6 @@ import ai.grakn.concept.Concept;
 import ai.grakn.graql.GetQuery;
 import ai.grakn.graql.InsertQuery;
 import ai.grakn.graql.QueryBuilder;
-import ai.grakn.graql.answer.Answer;
 import ai.grakn.graql.answer.ConceptMap;
 import ai.grakn.util.SimpleURI;
 import com.google.common.collect.Iterables;
@@ -82,9 +80,10 @@ public class App
                 Map<String, String> line = csv.next();
                 try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
                     loadTaxonomyHierarchy(line, taxonomyMigration, tx);
-                    loadExchange(line, importMigration, exportMigration, tx);
                     tx.commit();
                 }
+                // push the session down to avoid inserting same attribtue twice in once insert
+                loadExchange(line, importMigration, exportMigration, session);
             }
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -102,31 +101,37 @@ public class App
     }
 
     private static void loadExchange(Map<String, String> line, MigrationQuery importMigration,
-                                     MigrationQuery exportMigration, Grakn.Transaction tx) {
+                                     MigrationQuery exportMigration, Grakn.Session session) {
 
         // if the "importer reported quantity" is non-empty string
         // add an import
         String imported = line.get("Importer reported quantity");
         List<ConceptMap> importMigrationResult = null;
         if (imported.length() > 0) {
-            importMigrationResult = doMigration(line, importMigration, tx);
+            try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
+                importMigrationResult = doMigration(line, importMigration, tx);
+                tx.commit();
+            }
         }
 
         // if "exported reported quantity" is non-empty string, add an export
         String exported =  line.get("Exporter reported quantity");
         if (exported.length() > 0) {
-            List<ConceptMap> exportMigrationResult = doMigration(line, exportMigration, tx);
+            try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
+                List<ConceptMap> exportMigrationResult = doMigration(line, exportMigration, tx);
 
-            if (importMigrationResult != null && importMigrationResult.size() > 0) {
-                // add relationships between the import and export
-                Concept importConcept = Iterables.getOnlyElement(importMigrationResult).asConceptMap().get("import");
-                Concept exportConcept = Iterables.getOnlyElement(exportMigrationResult).asConceptMap().get("export");
+                if (importMigrationResult != null && importMigrationResult.size() > 0) {
+                    // add relationships between the import and export
+                    Concept importConcept = Iterables.getOnlyElement(importMigrationResult).asConceptMap().get("import");
+                    Concept exportConcept = Iterables.getOnlyElement(exportMigrationResult).asConceptMap().get("export");
 
-                // create and run the query to link these two concepts
-                addRelationship(tx, "correspondence",
-                        Arrays.asList("correspondence-import", "correspondence-export"),
-                        Arrays.asList(importConcept, exportConcept));
+                    // create and run the query to link these two concepts
+                    addRelationship(tx, "correspondence",
+                            Arrays.asList("correspondence-import", "correspondence-export"),
+                            Arrays.asList(importConcept, exportConcept));
 
+                }
+                tx.commit();
             }
         }
     }
