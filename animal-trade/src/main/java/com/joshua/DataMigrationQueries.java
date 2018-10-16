@@ -2,6 +2,8 @@ package com.joshua;
 
 
 
+import com.google.common.collect.ImmutableMap;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
@@ -280,8 +282,6 @@ class TaxonInsertQuery extends SingletonInsertMigrationQuery {
         BuildString bs = new BuildString();
         bs.add("$t isa taxonomy-taxon, has name ");
         bs.addQuoted(line.get("Taxon")); // TODO check if this is the right key
-        bs.add(", has endangerment ");
-        bs.addQuoted(line.get("App."));
         bs.add(";");
         return bs.toString();
     }
@@ -304,12 +304,13 @@ class TaxonInsertQuery extends SingletonInsertMigrationQuery {
 }
 
 /*
- * Insertions that are NOT singletons!
+ * Insertions that are NOT singletons (ie upserts)
  */
 
 
 
 // insert majority of information
+
 
 class MainImportQuery extends MigrationQuery {
     @Override
@@ -339,12 +340,14 @@ class MainImportQuery extends MigrationQuery {
         bs.add(", has term ");
         bs.addQuoted(line.get("Term"));
         bs.add("; ");
-        bs.add("$import(object: $item, receiver: $importer, provider: $exporter) isa import has exch-date ");
+        bs.add("$import(object: $item, receiver: $importer, provider: $exporter) isa import, has exch-date ");
         int year = Integer.parseInt(line.get("Year"));
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate date = LocalDate.of(year, 1, 1);
         String dateString = date.format(formatter);
         bs.add(dateString);
+        bs.add(", has appendix ");
+        bs.add(appendixMapping.get(line.get("App.")));
         bs.add("; ");
         bs.add("$r (sized: $item, measurement: $m) isa sizing; ") ;
         bs.add("(target: $item, explanation: $s) isa description;");
@@ -386,6 +389,8 @@ class MainExportQuery extends MigrationQuery {
         LocalDate date = LocalDate.of(year, 1, 1);
         String dateString = date.format(formatter);
         bs.add(dateString);
+        bs.add(", has appendix ");
+        bs.add(appendixMapping.get(line.get("App.")));
         bs.add("; ");
         bs.add("$r (sized: $item, measurement: $m) isa sizing; ");
         bs.add("(target: $item, explanation: $s) isa description;");

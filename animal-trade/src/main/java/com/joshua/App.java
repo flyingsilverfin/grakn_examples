@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 import ai.grakn.GraknTxType;
@@ -26,13 +27,18 @@ public class App
 {
     public static void main( String[] args ) throws IOException {
         final String GRAKN_URI = "localhost:48555";
-        final String GRAKN_KEYSPACE = "animaltrade";
-        try (Grakn.Session session = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(GRAKN_KEYSPACE))) {
-            loadCountryRegions(session); // make two load datas: one for each file to load data from
-            loadAnimalTradeData(session);
+//        final String GRAKN_KEYSPACE = "animaltrade";
+        final String TRAIN_KEYSPACE = "animaltrade_train";
+        final String TEST_KEYSPACE = "animaltrade_test";
+        final double TRAIN_SPLIT = 0.5;
 
-            // TODO analyze/use data
-        }
+        Grakn.Session trainKeyspace = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(TRAIN_KEYSPACE));
+        Grakn.Session testKeyspace = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(TEST_KEYSPACE));
+        loadCountryRegions(trainKeyspace); // make two load datas: one for each file to load data from
+        loadCountryRegions(testKeyspace);
+        loadAnimalTradeData(trainKeyspace, testKeyspace, TRAIN_SPLIT);
+        trainKeyspace.close();
+        testKeyspace.close();
 
     }
 
@@ -63,25 +69,28 @@ public class App
         }
     }
 
-    private static void loadAnimalTradeData(Grakn.Session session) throws IOException {
+    private static void loadAnimalTradeData(Grakn.Session trainSession, Grakn.Session testSession, double trainSplit) throws IOException {
         MigrationQuery[] taxonomyMigration = DataMigrationQueries.getTaxonomyHierarchyMigrationQueries();
         MigrationQuery importMigration = DataMigrationQueries.getImportMigrationQuery();
         MigrationQuery exportMigration = DataMigrationQueries.getExportMigrationQuery();
 
         String citiesTradeCSV = "/Users/joshua/Documents/grakn_examples/animal-trade/data/CITIES_data.csv";
         File dataFile = new File(citiesTradeCSV);
+        Random random = new Random();
 
         try {
             CSVIterator csv = new CSVIterator(dataFile, ',');
             for (int i = 0; csv.hasNext(); i++) {
+                boolean loadIntoTrain = random.nextDouble()  < trainSplit;
+
                 if (i % 1 == 0) {
-                    System.out.printf("Loaded import/export: %d\n", i);
+                    System.out.printf("Loaded import/export into %s: %d\n", loadIntoTrain ? "train" : "test", i);
                 }
+
                 Map<String, String> line = csv.next();
-                try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
-                    loadTaxonomyHierarchy(line, taxonomyMigration, tx);
-                    tx.commit();
-                }
+
+                Grakn.Session session = loadIntoTrain ? trainSession: testSession;
+                loadTaxonomyHierarchy(line, taxonomyMigration, session);
                 // push the session down to avoid inserting same attribtue twice in once insert
                 loadExchange(line, importMigration, exportMigration, session);
             }
@@ -93,10 +102,13 @@ public class App
 
     }
 
-    private static void loadTaxonomyHierarchy(Map<String, String> line, MigrationQuery[] taxonomyMigration, Grakn.Transaction tx) {
+    private static void loadTaxonomyHierarchy(Map<String, String> line, MigrationQuery[] taxonomyMigration, Grakn.Session session) {
         // insert singleton taxonomy hierarchy instances
-        for (MigrationQuery q : taxonomyMigration) {
-            doMigration(line, q, tx);
+        try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
+            for (MigrationQuery q : taxonomyMigration) {
+                doMigration(line, q, tx);
+            }
+            tx.commit();
         }
     }
 
@@ -117,26 +129,25 @@ public class App
         // if "exported reported quantity" is non-empty string, add an export
         String exported =  line.get("Exporter reported quantity");
         if (exported.length() > 0) {
-            try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
-                List<ConceptMap> exportMigrationResult = doMigration(line, exportMigration, tx);
-
-                if (importMigrationResult != null && importMigrationResult.size() > 0) {
-                    // add relationships between the import and export
-                    Concept importConcept = Iterables.getOnlyElement(importMigrationResult).asConceptMap().get("import");
-                    Concept exportConcept = Iterables.getOnlyElement(exportMigrationResult).asConceptMap().get("export");
-
-                    // create and run the query to link these two concepts
+            Concept importConcept = null;
+            Concept exportConcept = null;
+            if (importMigrationResult != null && importMigrationResult.size() > 0) {
+                try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
+                    List<ConceptMap> exportMigrationResult = doMigration(line, exportMigration, tx);
+                        // add relationships between the import and export
+                        importConcept = Iterables.getOnlyElement(importMigrationResult).asConceptMap().get("import");
+                        exportConcept = Iterables.getOnlyElement(exportMigrationResult).asConceptMap().get("export");
+                    tx.commit();
+                    }
+                try (Grakn.Transaction tx = session.transaction(GraknTxType.WRITE)) {
                     addRelationship(tx, "correspondence",
                             Arrays.asList("correspondence-import", "correspondence-export"),
                             Arrays.asList(importConcept, exportConcept));
-
+                    tx.commit();
                 }
-                tx.commit();
             }
         }
     }
-
-
 
     private static List<ConceptMap> doMigration(Map<String, String> line, MigrationQuery query, Grakn.Transaction tx) {
         QueryBuilder qb = tx.graql();

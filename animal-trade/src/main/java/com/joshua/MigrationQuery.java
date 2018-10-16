@@ -1,5 +1,7 @@
 package com.joshua;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.Map;
 
 /*
@@ -10,6 +12,12 @@ void (?) insert1(Map<String, String> line) {
  */
 
 public abstract class MigrationQuery {
+
+    final Map<String, String> appendixMapping = ImmutableMap.of(
+            "I", "1",
+            "II", "2",
+            "III", "3"
+    );
 
     // instantiate with a user function
     // which takes a CSVLine which is indexable by the column names
