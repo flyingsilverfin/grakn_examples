@@ -26,19 +26,22 @@ define
         relates receiver, 
         relates provider, 
         relates object,
-        has exch-date; # this lets one match up exchanges 
+        has exch-date, # this lets one match up exchanges 
+        has appendix; 
     export sub exchange,
         relates receiver, 
         relates provider, 
         relates object,
         plays correspondence-export,
-        has exch-date; 
-    import sub exchange, # note this redefinition will in the future not be necssary
+        has exch-date,
+        has appendix; 
+    import sub exchange, # note this redefinition of relates/plays/has  will in the future not be necssary
         relates receiver, 
         relates provider, 
         relates object,
         plays correspondence-import,
-        has exch-date; 
+        has exch-date,
+        has appendix; 
 
     correspondence sub relationship,
         relates correspondence-import,
@@ -57,6 +60,7 @@ define
     quantity sub attribute, datatype double;
     unit sub attribute, datatype string;
     exch-date sub attribute, datatype date;  
+    appendix sub attribute, datatype long; 
 
 
 # Schema specialized for Animal Trade for CITIES treaty data
@@ -87,7 +91,6 @@ define
         plays ancestor,
         plays descendant;
     taxonomy-taxon sub category,
-        has endangerment,
         plays originated-species,
         plays descendant;
 
@@ -116,7 +119,6 @@ define
 #
     # attributes for animal trade
     purpose sub attribute, datatype string;
-    endangerment sub attribute, datatype string; # can link this to some data from the PDF
     term sub attribute, datatype string;
     source sub attribute, datatype string;
 #    taxonomic-name sub attribute, datatype string;
