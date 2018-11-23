@@ -1,9 +1,5 @@
 package com.joshua;
 
-
-
-import com.google.common.collect.ImmutableMap;
-
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
@@ -15,7 +11,7 @@ public class DataMigrationQueries {
     // Note: these must be in increasing specialization of the single-instance hierarchies!
     static MigrationQuery[] getCountryRegionMigrationQueries() {
         return new MigrationQuery[] {
-                new RegionInsertQuery(), // region first, the higher level in the hierarchy
+                new ContinentInsertQuery(), // region first, the higher level in the hierarchy
                 new CountryInsertQuery() // then the country
         };
     }
@@ -26,7 +22,7 @@ public class DataMigrationQueries {
                 new OrderInsertQuery(),
                 new FamilyInsertQuery(),
                 new GenusInsertQuery(),
-                new TaxonInsertQuery()
+                new SpeciesInsertQuery()
         };
     }
 
@@ -116,20 +112,22 @@ class CountryInsertQuery extends SingletonInsertMigrationQuery {
         bs.addQuoted(line.get("Official Name"));
         bs.add(", has ISO-id ");
         bs.addQuoted(line.get("ISO"));
-        // join date and participates-CITIES and CITIES-partipation-type
+        // join date and participates-CITES and CITES-partipation-type
 
         String participationType = line.get("Type");
         if (!participationType.trim().isEmpty()) {
-            bs.add(", has CITIES-participation-type ");
+            bs.add(", has CITES-participation-type ");
             bs.addQuoted(participationType);
-            bs.add(", has participates-CITIES true");
-            bs.add(", has CITIES-entry-into-force-date  ");
+            bs.add(", has CITES-participation true");
+            bs.add(", has CITES-entry-into-force-date  ");
             // need to parse out date
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             LocalDate date = LocalDate.from(formatter.parse(line.get("Entry into force")));
             DateTimeFormatter graqlDateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             String graqlDateString = graqlDateFormat.format(date).toString();
             bs.add(graqlDateString);
+        } else {
+            bs.add(", has CITES-participation false");
         }
         bs.add(";");
         return bs.toString();
@@ -147,20 +145,20 @@ class CountryInsertQuery extends SingletonInsertMigrationQuery {
         // TODO however is convenient since have access to $c for country
         // TODO but again this is brittle since $c is generated in a different method `sharedString`...
         BuildString bs = new BuildString();
-        bs.add("match $r isa region, has name ");
+        bs.add("match $cont isa continent, has name ");
         bs.addQuoted(line.get("Region"));
         bs.add("; insert ");
         bs.add(this.sharedString(line));
-        bs.add("(container: $r, containee: $c) isa location-hierarchy;");
+        bs.add("(containing-continent: $cont, contained-country: $c) isa continent-country-containment;");
         return bs.toString();
     }
 }
 
 // intended for use with auxiliary CSV with Country - Region mapping
-class RegionInsertQuery extends SingletonInsertMigrationQuery {
+class ContinentInsertQuery extends SingletonInsertMigrationQuery {
     private String sharedString(Map<String, String> line) {
         BuildString bs = new BuildString();
-        bs.add("$r isa region, has name ");
+        bs.add("$r isa continent, has name ");
         bs.addQuoted(line.get("Region")); // TODO check if this is the right key
         bs.add(";");
         return bs.toString();
@@ -181,7 +179,7 @@ class RegionInsertQuery extends SingletonInsertMigrationQuery {
 class ClassInsertQuery extends SingletonInsertMigrationQuery {
     private String sharedString(Map<String, String> line) {
         BuildString bs = new BuildString();
-        bs.add("$c isa taxonomy-class, has name ");
+        bs.add("$c isa taxonomic-class, has name ");
         bs.addQuoted(line.get("Class")); // TODO check if this is the right key
         bs.add(";");
         return bs.toString();
@@ -200,7 +198,7 @@ class ClassInsertQuery extends SingletonInsertMigrationQuery {
 class OrderInsertQuery extends SingletonInsertMigrationQuery {
     private String sharedString(Map<String, String> line) {
         BuildString bs = new BuildString();
-        bs.add("$x isa taxonomy-order, has name ");
+        bs.add("$x isa taxonomic-order, has name ");
         bs.addQuoted(line.get("Order")); // TODO check if this is the right key
         bs.add(";");
         return bs.toString();
@@ -215,11 +213,11 @@ class OrderInsertQuery extends SingletonInsertMigrationQuery {
         // get the query to insert $x, the order
         // assume this is only called once, and that super (`class`) is already inserted once
         BuildString bs = new BuildString();
-        bs.add("match $c isa taxonomy-class, has name ");
+        bs.add("match $c isa taxonomic-class, has name ");
         bs.addQuoted(line.get("Class"));
         bs.add("; insert ");
         bs.add(this.sharedString(line));
-        bs.add(" (ancestor: $c, descendant: $x) isa taxonomy-hierarchy;");
+        bs.add(" (super-taxon: $c, sub-taxon: $x) isa taxonomic-hierarchy;");
         return bs.toString();
     }
 }
@@ -227,7 +225,7 @@ class OrderInsertQuery extends SingletonInsertMigrationQuery {
 class FamilyInsertQuery extends SingletonInsertMigrationQuery {
     private String sharedString(Map<String, String> line) {
         BuildString bs = new BuildString();
-        bs.add("$f isa taxonomy-family, has name ");
+        bs.add("$f isa taxonomic-family, has name ");
         bs.addQuoted(line.get("Family")); // TODO check if this is the right key
         bs.add(";");
         return bs.toString();
@@ -242,11 +240,11 @@ class FamilyInsertQuery extends SingletonInsertMigrationQuery {
         // get the query to insert $x, the order
         // assume this is only called once, and that super (`class`) is already inserted once
         BuildString bs = new BuildString();
-        bs.add("match $x isa taxonomy-order, has name ");
+        bs.add("match $x isa taxonomic-order, has name ");
         bs.addQuoted(line.get("Order"));
         bs.add("; insert ");
         bs.add(this.sharedString(line));
-        bs.add(" (ancestor: $x, descendant: $f) isa taxonomy-hierarchy;");
+        bs.add(" (super-taxon: $x, sub-taxon: $f) isa taxonomic-hierarchy;");
         return bs.toString();
     }
 }
@@ -254,7 +252,7 @@ class FamilyInsertQuery extends SingletonInsertMigrationQuery {
 class GenusInsertQuery extends SingletonInsertMigrationQuery {
     private String sharedString(Map<String, String> line) {
         BuildString bs = new BuildString();
-        bs.add("$g isa taxonomy-genus, has name ");
+        bs.add("$g isa taxonomic-genus, has name ");
         bs.addQuoted(line.get("Genus")); // TODO check if this is the right key
         bs.add(";");
         return bs.toString();
@@ -268,19 +266,19 @@ class GenusInsertQuery extends SingletonInsertMigrationQuery {
     public String getQuery(Map<String, String> line) {
         // assume this is only called once, and that super (`class`) is already inserted once
         BuildString bs = new BuildString();
-        bs.add("match $f isa taxonomy-family, has name ");
+        bs.add("match $f isa taxonomic-family, has name ");
         bs.addQuoted(line.get("Family"));
         bs.add("; insert ");
         bs.add(this.sharedString(line));
-        bs.add(" (ancestor: $f, descendant: $g) isa taxonomy-hierarchy;");
+        bs.add(" (super-taxon: $f, sub-taxon: $g) isa taxonomic-hierarchy;");
         return bs.toString();
     }
 }
 
-class TaxonInsertQuery extends SingletonInsertMigrationQuery {
+class SpeciesInsertQuery extends SingletonInsertMigrationQuery {
     private String sharedString(Map<String, String> line) {
         BuildString bs = new BuildString();
-        bs.add("$t isa taxonomy-taxon, has name ");
+        bs.add("$t isa taxonomic-species, has name ");
         bs.addQuoted(line.get("Taxon")); // TODO check if this is the right key
         bs.add(";");
         return bs.toString();
@@ -294,11 +292,11 @@ class TaxonInsertQuery extends SingletonInsertMigrationQuery {
     public String getQuery(Map<String, String> line) {
         // assume this is only called once, and that super (`class`) is already inserted once
         BuildString bs = new BuildString();
-        bs.add("match $g isa taxonomy-genus, has name ");
+        bs.add("match $g isa taxonomic-genus, has name ");
         bs.addQuoted(line.get("Genus"));
         bs.add("; insert ");
         bs.add(this.sharedString(line));
-        bs.add(" (ancestor: $g, descendant: $t) isa taxonomy-hierarchy;");
+        bs.add(" (super-taxon: $g, sub-taxon: $t) isa taxonomic-hierarchy;");
         return bs.toString();
     }
 }
@@ -323,24 +321,24 @@ class MainImportQuery extends MigrationQuery {
         bs.add("$exporter isa country, has ISO-id ");
         bs.addQuoted(line.get("Exporter"));
         bs.add("; ");
-        bs.add("$s isa taxonomy-taxon, has name ");
+        bs.add("$s isa taxonomic-species, has name ");
         bs.addQuoted(line.get("Taxon"));
         bs.add("; ");
 
         // insert
         bs.add("insert ");
-        bs.add("$m isa measure, has unit ");
+        bs.add("$m isa measurement, has unit-of-measurement ");
         bs.addQuoted(line.get("Unit"));
-        bs.add(", has quantity " + line.get("Importer reported quantity"));
+        bs.add(", has measured-quantity " + line.get("Importer reported quantity"));
         bs.add("; ");
-        bs.add("$item isa animal-item, has purpose ");
+        bs.add("$item isa traded-item, has item-purpose ");
         bs.addQuoted(line.get("Purpose"));
-        bs.add(", has source ");
+        bs.add(", has item-source ");
         bs.addQuoted(line.get("Source"));
-        bs.add(", has term ");
+        bs.add(", has item-type");
         bs.addQuoted(line.get("Term"));
         bs.add("; ");
-        bs.add("$import(object: $item, receiver: $importer, provider: $exporter) isa import, has exch-date ");
+        bs.add("$import(imported-item: $item, receiving-country: $importer, providing-country: $exporter) isa import, has exchange-date ");
         int year = Integer.parseInt(line.get("Year"));
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate date = LocalDate.of(year, 1, 1);
@@ -349,8 +347,8 @@ class MainImportQuery extends MigrationQuery {
         bs.add(", has appendix ");
         bs.add(appendixMapping.get(line.get("App.")));
         bs.add("; ");
-        bs.add("$r (sized: $item, measurement: $m) isa sizing; ") ;
-        bs.add("(target: $item, explanation: $s) isa description;");
+        bs.add("$r (quantified-subject: $item, quantification-measurement: $m) isa quantification; ") ;
+        bs.add("(member-item: $item, taxonomic-group: $s) isa taxon-membership;");
         return bs.toString();
     }
 }
@@ -366,24 +364,24 @@ class MainExportQuery extends MigrationQuery {
         bs.add("$exporter isa country, has ISO-id ");
         bs.addQuoted(line.get("Exporter"));
         bs.add("; ");
-        bs.add("$s isa taxonomy-taxon, has name ");
+        bs.add("$s isa taxonomic-species, has name ");
         bs.addQuoted(line.get("Taxon"));
         bs.add("; ");
 
         // insert
         bs.add("insert ");
-        bs.add("$m isa measure, has unit ");
+        bs.add("$m isa measurement, has unit-of-measurement ");
         bs.addQuoted(line.get("Unit"));
-        bs.add(", has quantity " + line.get("Exporter reported quantity")); // ** difference **
+        bs.add(", has measured-quantity " + line.get("Exporter reported quantity")); // ** difference **
         bs.add("; ");
-        bs.add("$item isa animal-item, has purpose ");
+        bs.add("$item isa traded-item, has item-purpose ");
         bs.addQuoted(line.get("Purpose"));
-        bs.add(", has source ");
+        bs.add(", has item-source ");
         bs.addQuoted(line.get("Source"));
-        bs.add(", has term ");
+        bs.add(", has item-type ");
         bs.addQuoted(line.get("Term"));
         bs.add("; ");
-        bs.add("$export (object: $item, receiver: $importer, provider: $exporter) isa export has exch-date "); // ** difference **
+        bs.add("$export (exported-item: $item, receiving-country: $importer, providing-country: $exporter) isa export has exchange-date "); // ** difference **
         int year = Integer.parseInt(line.get("Year"));
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate date = LocalDate.of(year, 1, 1);
@@ -392,8 +390,8 @@ class MainExportQuery extends MigrationQuery {
         bs.add(", has appendix ");
         bs.add(appendixMapping.get(line.get("App.")));
         bs.add("; ");
-        bs.add("$r (sized: $item, measurement: $m) isa sizing; ");
-        bs.add("(target: $item, explanation: $s) isa description;");
+        bs.add("$r (quantified-subject: $item, quantification-measurement: $m) isa quantification; ");
+        bs.add("(member-item: $item, taxonomic-group: $s) isa taxon-membership;");
         return bs.toString();
     }
 }

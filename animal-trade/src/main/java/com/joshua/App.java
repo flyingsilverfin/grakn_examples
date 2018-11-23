@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -26,7 +27,7 @@ public class App
 {
     public static void main( String[] args ) throws IOException {
         final String GRAKN_URI = "localhost:48555";
-        final String GRAKN_KEYSPACE = "animaltrade";
+        final String GRAKN_KEYSPACE = "animaltrade_new";
         try (Grakn.Session session = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(GRAKN_KEYSPACE))) {
             loadCountryRegions(session); // make two load datas: one for each file to load data from
             loadAnimalTradeData(session);
@@ -64,6 +65,15 @@ public class App
     }
 
     private static void loadAnimalTradeData(Grakn.Session session) throws IOException {
+
+
+        String tradeTermCodesFile = "/Users/joshua/Documents/grakn_examples/animal-trade/data/trade_terms.csv";
+        String unitCodesFile = "/Users/joshua/Documents/grakn_examples/animal-trade/data/units.csv";
+        String purposeCodesFile = "/Users/joshua/Documents/grakn_examples/animal-trade/data/purposes.csv";
+        Map<String, String> tradeTermCodes = getCodesFromCsv(tradeTermCodesFile, ' ');
+        Map<String, String> unitCodes = getCodesFromCsv(unitCodesFile, ' ');
+        Map<String, String> purposeCodes = getCodesFromCsv(purposeCodesFile, ' ');
+
         MigrationQuery[] taxonomyMigration = DataMigrationQueries.getTaxonomyHierarchyMigrationQueries();
         MigrationQuery importMigration = DataMigrationQueries.getImportMigrationQuery();
         MigrationQuery exportMigration = DataMigrationQueries.getExportMigrationQuery();
@@ -82,6 +92,17 @@ public class App
                     loadTaxonomyHierarchy(line, taxonomyMigration, tx);
                     tx.commit();
                 }
+
+                // replace the various codes in the line with full names, if we have a mapping
+                String unit = unitCodes.get(line.get("Unit"));
+                if (unit != null) { line.put("Unit", unit); }
+
+                String term = tradeTermCodes.get(line.get("Term"));
+                if (term != null) { line.put("Term", term); }
+
+                String purpose = purposeCodes.get(line.get("Purpose"));
+                if (term != null) { line.put("Purpose", term); }
+
                 // push the session down to avoid inserting same attribtue twice in once insert
                 loadExchange(line, importMigration, exportMigration, session);
             }
@@ -91,6 +112,20 @@ public class App
             e.printStackTrace();
         }
 
+    }
+
+    private static Map<String, String> getCodesFromCsv(String resourcePath, char separator) {
+        File csvFile = new File(resourcePath);
+        Map<String, String> codes = new HashMap<>();
+        try {
+            CSVIterator csv = new CSVIterator(csvFile, separator);
+            csv.forEachRemaining(line -> codes.put(line.get("Code"), line.get("Description")));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return codes;
     }
 
     private static void loadTaxonomyHierarchy(Map<String, String> line, MigrationQuery[] taxonomyMigration, Grakn.Transaction tx) {
@@ -126,8 +161,8 @@ public class App
                     Concept exportConcept = Iterables.getOnlyElement(exportMigrationResult).asConceptMap().get("export");
 
                     // create and run the query to link these two concepts
-                    addRelationship(tx, "correspondence",
-                            Arrays.asList("correspondence-import", "correspondence-export"),
+                    addRelationship(tx, "import-export-correspondence",
+                            Arrays.asList("corresponding-import", "corresponding-export"),
                             Arrays.asList(importConcept, exportConcept));
 
                 }
