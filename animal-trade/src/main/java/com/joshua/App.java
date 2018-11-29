@@ -34,8 +34,8 @@ public class App
 
         Grakn.Session trainKeyspace = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(TRAIN_KEYSPACE));
         Grakn.Session testKeyspace = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(TEST_KEYSPACE));
-        loadCountryRegions(trainKeyspace); // make two load datas: one for each file to load data from
-        loadCountryRegions(testKeyspace);
+//        loadCountryRegions(trainKeyspace); // make two load datas: one for each file to load data from
+////        loadCountryRegions(testKeyspace);
         loadAnimalTradeData(trainKeyspace, testKeyspace, TRAIN_SPLIT);
         trainKeyspace.close();
         testKeyspace.close();
@@ -102,13 +102,13 @@ public class App
 
                 // replace the various codes in the line with full names, if we have a mapping
                 String unit = unitCodes.get(line.get("Unit"));
-                if (unit != null) { line.put("Unit", unit); }
+                if (unit != null) { line.replace("Unit", unit); }
 
                 String term = tradeTermCodes.get(line.get("Term"));
-                if (term != null) { line.put("Term", term); }
+                if (term != null) { line.replace("Term", term); }
 
                 String purpose = purposeCodes.get(line.get("Purpose"));
-                if (term != null) { line.put("Purpose", term); }
+                if (purpose != null) { line.replace("Purpose", purpose); }
 
                 // push the session down to avoid inserting same attribtue twice in once insert
                 loadExchange(line, importMigration, exportMigration, session);
