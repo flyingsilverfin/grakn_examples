@@ -23,6 +23,10 @@ import com.google.common.collect.Iterables;
 
 /**
  *
+ *  TODO
+ *  * Add cmd flag for splitting into separate keyspaces & probabilities (up to 3 - train/test/validate)
+ *  * refactor for cleaner architecture
+ *  * Renaming
  */
 public class App 
 {
@@ -34,8 +38,8 @@ public class App
 
         Grakn.Session trainKeyspace = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(TRAIN_KEYSPACE));
         Grakn.Session testKeyspace = new Grakn(new SimpleURI(GRAKN_URI)).session(Keyspace.of(TEST_KEYSPACE));
-//        loadCountryRegions(trainKeyspace); // make two load datas: one for each file to load data from
-////        loadCountryRegions(testKeyspace);
+        loadCountryRegions(trainKeyspace); // make two load datas: one for each file to load data from
+        loadCountryRegions(testKeyspace);
         loadAnimalTradeData(trainKeyspace, testKeyspace, TRAIN_SPLIT);
         trainKeyspace.close();
         testKeyspace.close();

@@ -13,5 +13,9 @@ I've imported the chronological list into data/country_region_mapping.csv but ad
 of missing ISO coded territories and countries referenced from the main dataset
 
 
+# Data Loading
+Load the schema under `data/schema.gql`. Then run the main in `App.java`.
+
+
 
 
