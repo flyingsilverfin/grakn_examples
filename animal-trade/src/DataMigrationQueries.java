@@ -329,7 +329,7 @@ class MainImportQuery extends MigrationQuery {
         bs.add("insert ");
         bs.add("$m isa measurement, has unit-of-measurement ");
         bs.addQuoted(line.get("Unit"));
-        bs.add(", has measured-quantity " + Double.parseDouble(line.get("Importer reported quantity")));
+        bs.add(", has measured-quantity " + String.format("%f", Double.parseDouble(line.get("Importer reported quantity"))));
         bs.add("; ");
         bs.add("$item isa traded-item, has item-purpose ");
         bs.addQuoted(line.get("Purpose"));
@@ -372,7 +372,7 @@ class MainExportQuery extends MigrationQuery {
         bs.add("insert ");
         bs.add("$m isa measurement, has unit-of-measurement ");
         bs.addQuoted(line.get("Unit"));
-        bs.add(", has measured-quantity " + Double.parseDouble(line.get("Exporter reported quantity"))); // ** difference **
+        bs.add(", has measured-quantity " + String.format("%f", Double.parseDouble(line.get("Exporter reported quantity")))); // ** difference **
         bs.add("; ");
         bs.add("$item isa traded-item, has item-purpose ");
         bs.addQuoted(line.get("Purpose"));
