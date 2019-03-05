@@ -1,4 +1,4 @@
-package com.joshua;
+package grakn.examples.animaltrade;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;

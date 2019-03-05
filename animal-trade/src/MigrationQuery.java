@@ -1,7 +1,7 @@
-package com.joshua;
+package grakn.examples.animaltrade;
 
-import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /*
@@ -13,11 +13,14 @@ void (?) insert1(Map<String, String> line) {
 
 public abstract class MigrationQuery {
 
-    final Map<String, String> appendixMapping = ImmutableMap.of(
-            "I", "1",
-            "II", "2",
-            "III", "3"
-    );
+
+    Map<String, String> appendixMapping() {
+        Map<String, String> appendixMapping = new HashMap<>();
+        appendixMapping.put("I", "1");
+        appendixMapping.put("II", "2");
+        appendixMapping.put("III", "3");
+        return appendixMapping;
+    }
 
     // instantiate with a user function
     // which takes a CSVLine which is indexable by the column names

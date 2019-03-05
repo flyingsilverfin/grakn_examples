@@ -1,4 +1,4 @@
-package com.joshua;
+package grakn.examples.animaltrade;
 
 import java.util.Map;
 

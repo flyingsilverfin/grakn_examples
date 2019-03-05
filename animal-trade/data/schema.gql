@@ -39,7 +39,7 @@ define
         has measured-quantity, # quantity
         has unit-of-measurement, # handled in attrs
         plays quantification-measurement; # measurement
-    exchange sub relationship,
+    exchange sub relation,
         relates receiving-country, # receiver
         relates providing-country, # provider
         relates exchanged-item, # object
@@ -55,10 +55,10 @@ define
         relates providing-country, # done
         relates imported-item as exchanged-item, # done
         plays corresponding-import; # correspondence-import
-    import-export-correspondence sub relationship, # correspondence
+    import-export-correspondence sub relation, # correspondence
         relates corresponding-import, # done
         relates corresponding-export; # done
-    quantification sub relationship, # sizing
+    quantification sub relation, # sizing
         relates quantified-subject, # done
         relates quantification-measurement; # done
     taxon sub entity, # category
@@ -78,7 +78,7 @@ define
     taxonomic-species sub taxon, # taxonomy-taxon
         plays originated-species,
         plays sub-taxon;
-    hierarchy sub relationship,
+    hierarchy sub relation,
         relates superior, # upper
         relates subordinate; # lower
     categorisation-hierarchy sub hierarchy,
@@ -93,11 +93,11 @@ define
     continent-country-containment sub containment, #location-hierarchy
         relates containing-continent as container, #container
         relates contained-country as containee; #containee
-    species-origination sub relationship,
+    species-origination sub relation,
         relates originating-country,
         relates originated-species;
 
-    taxon-membership sub relationship,
+    taxon-membership sub relation,
             relates member-item,
             relates taxonomic-group;
 
@@ -105,7 +105,7 @@ define
         when {
             (super-taxon: $a, sub-taxon: $b) isa taxonomic-hierarchy;
             (super-taxon: $b, sub-taxon: $c) isa taxonomic-hierarchy;
-        }
+        },
         then {
             (super-taxon: $a, sub-taxon: $c) isa taxonomic-hierarchy;
         };
@@ -114,7 +114,7 @@ define
         when {
             (member-item: $a, taxonomic-group: $taxon) isa taxon-membership;
             (sub-taxon: $taxon, super-taxon: $super) isa taxonomic-hierarchy;
-        }
+        },
         then {
             (member-item: $a, taxonomic-group: $super) isa taxon-membership;
         };

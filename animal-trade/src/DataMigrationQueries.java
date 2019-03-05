@@ -1,4 +1,4 @@
-package com.joshua;
+package grakn.examples.animaltrade;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -329,7 +329,7 @@ class MainImportQuery extends MigrationQuery {
         bs.add("insert ");
         bs.add("$m isa measurement, has unit-of-measurement ");
         bs.addQuoted(line.get("Unit"));
-        bs.add(", has measured-quantity " + line.get("Importer reported quantity"));
+        bs.add(", has measured-quantity " + Double.parseDouble(line.get("Importer reported quantity")));
         bs.add("; ");
         bs.add("$item isa traded-item, has item-purpose ");
         bs.addQuoted(line.get("Purpose"));
@@ -345,7 +345,7 @@ class MainImportQuery extends MigrationQuery {
         String dateString = date.format(formatter);
         bs.add(dateString);
         bs.add(", has appendix ");
-        bs.add(appendixMapping.get(line.get("App.")));
+        bs.add(appendixMapping().get(line.get("App.")));
         bs.add("; ");
         bs.add("$r (quantified-subject: $item, quantification-measurement: $m) isa quantification; ") ;
         bs.add("(member-item: $item, taxonomic-group: $s) isa taxon-membership;");
@@ -372,7 +372,7 @@ class MainExportQuery extends MigrationQuery {
         bs.add("insert ");
         bs.add("$m isa measurement, has unit-of-measurement ");
         bs.addQuoted(line.get("Unit"));
-        bs.add(", has measured-quantity " + line.get("Exporter reported quantity")); // ** difference **
+        bs.add(", has measured-quantity " + Double.parseDouble(line.get("Exporter reported quantity"))); // ** difference **
         bs.add("; ");
         bs.add("$item isa traded-item, has item-purpose ");
         bs.addQuoted(line.get("Purpose"));
@@ -381,14 +381,14 @@ class MainExportQuery extends MigrationQuery {
         bs.add(", has item-type ");
         bs.addQuoted(line.get("Term"));
         bs.add("; ");
-        bs.add("$export (exported-item: $item, receiving-country: $importer, providing-country: $exporter) isa export has exchange-date "); // ** difference **
+        bs.add("$export (exported-item: $item, receiving-country: $importer, providing-country: $exporter) isa export, has exchange-date "); // ** difference **
         int year = Integer.parseInt(line.get("Year"));
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate date = LocalDate.of(year, 1, 1);
         String dateString = date.format(formatter);
         bs.add(dateString);
         bs.add(", has appendix ");
-        bs.add(appendixMapping.get(line.get("App.")));
+        bs.add(appendixMapping().get(line.get("App.")));
         bs.add("; ");
         bs.add("$r (quantified-subject: $item, quantification-measurement: $m) isa quantification; ");
         bs.add("(member-item: $item, taxonomic-group: $s) isa taxon-membership;");
