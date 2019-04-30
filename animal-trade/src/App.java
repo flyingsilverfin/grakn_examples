@@ -1,6 +1,6 @@
 package grakn.examples.animaltrade;
 
-import grakn.core.client.GraknClient;
+import grakn.client.GraknClient;
 import grakn.core.concept.Concept;
 import grakn.core.concept.answer.ConceptMap;
 import graql.lang.Graql;
